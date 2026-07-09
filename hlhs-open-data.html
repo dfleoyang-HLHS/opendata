@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>國立花蓮高中 校務統計儀表板｜教育部開放資料</title>
+<meta name="description" content="以教育部「高級中等學校校別資料」開放資料集，鎖定國立花蓮高級中學之歷年班級、學生、教師與畢業生統計。">
+<style>
+  :root{
+    --paper:#F2F4F6;          /* 雲石灰 marble paper */
+    --card:#FFFFFF;
+    --ink:#1B2A41;            /* 墨藍 */
+    --ink-soft:#4A5A72;
+    --line:#D7DEE6;
+    --sea:#0E7C86;            /* 洋流青 accent */
+    --sea-soft:#0E7C8622;
+    --male:#2E6FA3;           /* 海藍：男 */
+    --female:#E0A458;         /* 晨金：女 */
+    --ridge:#8FA3B8;          /* 山稜灰藍 */
+    --ok:#2F7D4F;
+    --warn:#B3541E;
+    --shadow:0 1px 2px rgba(27,42,65,.06), 0 8px 24px rgba(27,42,65,.07);
+    --radius:14px;
+  }
+  [data-theme="dark"]{
+    --paper:#101823;
+    --card:#182334;
+    --ink:#E8EEF5;
+    --ink-soft:#9FB0C4;
+    --line:#2A3A50;
+    --sea:#3BB3BD;
+    --sea-soft:#3BB3BD26;
+    --male:#6FA8D6;
+    --female:#E8B878;
+    --ridge:#5A7086;
+    --ok:#5CBF88;
+    --warn:#E0854E;
+    --shadow:0 1px 2px rgba(0,0,0,.35), 0 10px 28px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} *{transition:none!important;animation:none!important} }
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+    font-size:16px; line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  .serif{font-family:"Noto Serif TC","Songti TC",serif}
+  .mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+
+  /* ── Header ─────────────────────────── */
+  header{
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, var(--card), var(--paper));
+  }
+  .head-in{display:flex;align-items:center;gap:18px;padding:26px 0 22px;flex-wrap:wrap}
+  .seal{
+    width:58px;height:58px;flex:0 0 58px;border:2px solid var(--sea);border-radius:10px;
+    display:grid;place-items:center;
+    font-family:"Noto Serif TC",serif;font-weight:700;font-size:22px;line-height:1.05;
+    color:var(--sea); letter-spacing:2px; padding-top:2px;
+  }
+  .head-t h1{margin:0;font-size:clamp(21px,3.4vw,30px);font-weight:700;letter-spacing:.5px}
+  .head-t .sub{margin:2px 0 0;color:var(--ink-soft);font-size:13.5px}
+  .head-t .sub .mono{font-size:12.5px;border:1px solid var(--line);border-radius:6px;padding:1px 7px;margin-left:8px}
+  .head-actions{margin-left:auto;display:flex;gap:10px;align-items:center}
+  button, .btn{
+    font:inherit;font-size:14px;color:var(--ink);background:var(--card);
+    border:1px solid var(--line);border-radius:10px;padding:8px 14px;cursor:pointer;
+    transition:border-color .15s, transform .05s;
+  }
+  button:hover,.btn:hover{border-color:var(--sea)}
+  button:focus-visible,.btn:focus-visible, a:focus-visible{outline:2px solid var(--sea);outline-offset:2px}
+  button:active{transform:translateY(1px)}
+  .btn-primary{background:var(--sea);border-color:var(--sea);color:#fff}
+  .btn-primary:hover{filter:brightness(1.06)}
+
+  /* ── Status strip ───────────────────── */
+  .status{
+    display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+    padding:12px 16px;margin:22px 0 8px;border:1px solid var(--line);
+    border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);
+    font-size:14px;color:var(--ink-soft);
+  }
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--ridge);flex:0 0 9px}
+  .status.ok .dot{background:var(--ok)} .status.err .dot{background:var(--warn)}
+  .status strong{color:var(--ink);font-weight:600}
+  .status .grow{flex:1}
+  .status a{color:var(--sea)}
+
+  /* ── Fallback / upload panel ────────── */
+  .panel{
+    border:1.5px dashed var(--line);border-radius:var(--radius);
+    padding:22px;margin:14px 0;background:var(--card);text-align:center;color:var(--ink-soft);
+  }
+  .panel.drag{border-color:var(--sea);background:var(--sea-soft)}
+  .panel h3{margin:0 0 6px;color:var(--ink);font-size:16px}
+  .panel p{margin:4px 0;font-size:14px}
+  .panel .mono{font-size:12.5px;word-break:break-all}
+  .hidden{display:none!important}
+
+  /* ── Chips for multiple matched units ─ */
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 4px}
+  .chip{border-radius:999px;padding:6px 14px;font-size:13.5px}
+  .chip[aria-pressed="true"]{background:var(--sea);border-color:var(--sea);color:#fff}
+
+  /* ── Stat cards ─────────────────────── */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:18px 0 6px}
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 18px 14px;box-shadow:var(--shadow);
+  }
+  .card .k{font-size:13px;color:var(--ink-soft);letter-spacing:.5px}
+  .card .v{font-size:30px;font-weight:700;font-family:"Noto Serif TC",serif;margin-top:2px}
+  .card .d{font-size:12.5px;color:var(--ink-soft);margin-top:2px}
+  .card .d b{color:var(--sea);font-weight:600}
+
+  /* ── Sections ───────────────────────── */
+  section{margin:34px 0}
+  .sec-head{display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:16px}
+  .sec-head h2{margin:0;font-size:20px;font-family:"Noto Serif TC",serif;letter-spacing:1px}
+  .sec-head .en{color:var(--ink-soft);font-size:12.5px;letter-spacing:1.5px;text-transform:uppercase}
+  .sec-head .tools{margin-left:auto;display:flex;gap:8px}
+
+  figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
+  figure + figure{margin-top:16px}
+  figcaption{font-size:14px;color:var(--ink-soft);display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+  figcaption b{color:var(--ink);font-weight:600;font-size:15px}
+  .lg{display:inline-flex;align-items:center;gap:6px;font-size:12.5px}
+  .sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+  svg text{font-family:"IBM Plex Mono",ui-monospace,monospace;fill:var(--ink-soft);font-size:11px}
+  .tip{
+    position:fixed;z-index:30;pointer-events:none;background:var(--ink);color:var(--paper);
+    padding:7px 11px;border-radius:8px;font-size:12.5px;line-height:1.5;box-shadow:var(--shadow);
+    transform:translate(-50%,calc(-100% - 10px));white-space:nowrap;opacity:0;transition:opacity .1s;
+  }
+
+  /* ── Table ──────────────────────────── */
+  .tbl-wrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:760px}
+  th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--card)}
+  thead th{
+    background:var(--card);color:var(--ink-soft);font-weight:600;font-size:12.5px;
+    position:sticky;top:0;border-bottom:2px solid var(--sea);
+  }
+  tbody tr:hover td{background:var(--sea-soft)}
+  td.num{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12.8px}
+
+  /* ── Footer / notes ─────────────────── */
+  .notes{font-size:13.5px;color:var(--ink-soft)}
+  .notes a{color:var(--sea)}
+  footer{border-top:1px solid var(--line);margin-top:44px;padding:20px 0 34px;font-size:13px;color:var(--ink-soft)}
+  footer .wrap{display:flex;gap:14px;flex-wrap:wrap;justify-content:space-between}
+
+  @media (max-width:640px){
+    .head-actions{margin-left:0;width:100%}
+    .card .v{font-size:25px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap head-in">
+    <div class="seal" aria-hidden="true">花<br>中</div>
+    <div class="head-t">
+      <h1 class="serif">國立花蓮高級中學 校務統計</h1>
+      <p class="sub">資料來源：教育部統計處「高級中等學校校別資料」開放資料集
+        <span class="mono" id="schoolCode">學校代碼偵測中…</span></p>
+    </div>
+    <div class="head-actions">
+      <button id="btnReload" type="button">重新載入資料</button>
+      <button id="btnCsv" type="button" disabled>匯出花中 CSV</button>
+      <button id="btnTheme" type="button" aria-label="切換深淺色主題">🌗 主題</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="status" id="status" role="status">
+    <span class="dot"></span>
+    <span id="statusText">正在連線教育部開放資料（stats.moe.gov.tw）…</span>
+    <span class="grow"></span>
+    <a href="https://data.gov.tw/dataset/6238" target="_blank" rel="noopener">資料集頁面 ↗</a>
+  </div>
+
+  <div class="panel hidden" id="uploadPanel">
+    <h3>改用手動載入</h3>
+    <p>瀏覽器封鎖了跨網域連線時，請先手動下載官方檔案，再拖曳到這裡（或點選選擇檔案）。</p>
+    <p class="mono">
+      <a href="https://stats.moe.gov.tw/files/opendata/base0.csv">base0.csv</a>　·　
+      <a href="https://stats.moe.gov.tw/files/opendata/base0.json">base0.json</a>
+    </p>
+    <p><label class="btn" style="display:inline-block">選擇 CSV / JSON 檔案
+      <input type="file" id="fileInput" accept=".csv,.json,text/csv,application/json" style="display:none">
+    </label></p>
+  </div>
+
+  <div class="chips" id="unitChips" aria-label="選擇統計單位"></div>
+
+  <div class="cards" id="cards"></div>
+
+  <section id="secTrend" class="hidden">
+    <div class="sec-head">
+      <h2>學生潮汐 <span class="en">Students by Year</span></h2>
+    </div>
+    <figure>
+      <figcaption>
+        <b>歷年學生數（男女堆疊）</b>
+        <span class="lg"><span class="sw" style="background:var(--male)"></span>男</span>
+        <span class="lg"><span class="sw" style="background:var(--female)"></span>女</span>
+        <span class="lg"><span class="sw" style="background:var(--ridge);height:3px;border-radius:2px"></span>班級數（右軸）</span>
+      </figcaption>
+      <div id="chartStudents"></div>
+    </figure>
+    <figure>
+      <figcaption>
+        <b>歷年教職人力</b>
+        <span class="lg"><span class="sw" style="background:var(--sea)"></span>專任教師</span>
+        <span class="lg"><span class="sw" style="background:var(--female)"></span>兼任／代理教師</span>
+        <span class="lg"><span class="sw" style="background:var(--ridge)"></span>職員</span>
+      </figcaption>
+      <div id="chartStaff"></div>
+    </figure>
+    <figure>
+      <figcaption><b>衍生指標</b><span style="font-size:12.5px">平均每班學生數・生師比（學生數 ÷ 專任教師數）</span></figcaption>
+      <div id="chartRatio"></div>
+    </figure>
+  </section>
+
+  <section id="secTable" class="hidden">
+    <div class="sec-head">
+      <h2>完整原始資料 <span class="en">Raw Records</span></h2>
+      <div class="tools"><span class="notes" id="rowCount"></span></div>
+    </div>
+    <div class="tbl-wrap"><table id="tbl"></table></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>資料說明 <span class="en">Notes</span></h2></div>
+    <div class="notes">
+      <p>本頁載入教育部統計處公告之「高級中等學校校別資料（含進修部（學校））」全國檔，於瀏覽器端即時篩選出校名為「國立花蓮高級中學」之所有年度紀錄；原始欄位包含專任／兼任教師數、職員數、班級數、學生數與上學年畢業生數（均分男女）。篩選採「校名完全比對＋學校代碼」雙重條件，可避免誤納花蓮高工、花蓮高商、花蓮高農等校名相近學校。</p>
+      <p>資料授權：<a href="https://data.gov.tw/license" target="_blank" rel="noopener">政府資料開放授權條款－第1版</a>。統計基準日以教育部各學年度調查為準；本頁不儲存任何資料，重新整理即重新讀取官方檔案。</p>
+    </div>
+  </section>
+</main>
+
+<div class="tip" id="tip" role="tooltip"></div>
+
+<footer>
+  <div class="wrap">
+    <span>國立花蓮高中｜校務統計儀表板</span>
+    <span>資料：教育部統計處開放資料 · 頁面：純靜態 HTML，可部署於 GitHub Pages</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ── Config ─────────────────────────── */
+  const SOURCES = [
+    "https://stats.moe.gov.tw/files/opendata/base0.json",
+    "https://stats.moe.gov.tw/files/opendata/base0.csv"
+  ];
+  const TARGET_NAMES = ["國立花蓮高級中學"];      // exact school of interest
+  const TARGET_HINT  = "花蓮高級中學";            // catches 進修部/進修學校 variants
+  const EXCLUDE_HINTS = ["工業","商業","農業","職業"]; // 花蓮高工/高商/高農
+
+  const $ = s => document.querySelector(s);
+  const statusBox = $("#status"), statusText = $("#statusText");
+  const tip = $("#tip");
+  let allRows = [], units = [], activeUnit = null, K = {};
+
+  /* ── Theme ──────────────────────────── */
+  const root = document.documentElement;
+  if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) root.dataset.theme = "dark";
+  $("#btnTheme").addEventListener("click", () => {
+    root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+    render(); // re-render charts to pick up CSS var colors
+  });
+
+  /* ── Status helpers ─────────────────── */
+  function setStatus(kind, html){
+    statusBox.classList.remove("ok","err");
+    if (kind) statusBox.classList.add(kind);
+    statusText.innerHTML = html;
+  }
+
+  /* ── Fetch pipeline ─────────────────── */
+  async function loadRemote(){
+    setStatus("", "正在連線教育部開放資料（stats.moe.gov.tw）…");
+    $("#uploadPanel").classList.add("hidden");
+    for (const url of SOURCES){
+      try{
+        const res = await fetch(url, {mode:"cors"});
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const text = await res.text();
+        const rows = url.endsWith(".json") ? parseJSON(text) : parseCSV(text);
+        if (rows.length){
+          ingest(rows, "官方即時資料（" + url.split("/").pop() + "）");
+          return;
+        }
+      }catch(e){ /* try next source */ }
+    }
+    setStatus("err",
+      "無法直接連線官方伺服器（多半是 CORS 跨網域限制），請改用下方手動載入。");
+    $("#uploadPanel").classList.remove("hidden");
+  }
+
+  /* ── Manual upload ──────────────────── */
+  const panel = $("#uploadPanel");
+  $("#fileInput").addEventListener("change", e => {
+    if (e.target.files[0]) readFile(e.target.files[0]);
+  });
+  ["dragover","dragenter"].forEach(ev => panel.addEventListener(ev, e => {
+    e.preventDefault(); panel.classList.add("drag");
+  }));
+  ["dragleave","drop"].forEach(ev => panel.addEventListener(ev, e => {
+    e.preventDefault(); panel.classList.remove("drag");
+    if (ev === "drop" && e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]);
+  }));
+  function readFile(file){
+    const fr = new FileReader();
+    fr.onload = () => {
+      try{
+        const text = String(fr.result).replace(/^\uFEFF/, "");
+        const rows = file.name.toLowerCase().endsWith(".json") || text.trim().startsWith("[") || text.trim().startsWith("{")
+          ? parseJSON(text) : parseCSV(text);
+        if (!rows.length) throw new Error("no rows");
+        ingest(rows, "手動載入檔案（" + file.name + "）");
+        panel.classList.add("hidden");
+      }catch(err){
+        setStatus("err", "檔案解析失敗：請確認為官方 base0.csv 或 base0.json。");
+      }
+    };
+    fr.readAsText(file, "utf-8");
+  }
+
+  /* ── Parsers ────────────────────────── */
+  function parseJSON(text){
+    let data = JSON.parse(text.replace(/^\uFEFF/, ""));
+    if (!Array.isArray(data)){
+      const k = Object.keys(data).find(k => Array.isArray(data[k]));
+      data = k ? data[k] : [];
+    }
+    return data;
+  }
+  function parseCSV(text){
+    text = text.replace(/^\uFEFF/, "");
+    const lines = [];
+    let row = [], field = "", inQ = false;
+    for (let i = 0; i < text.length; i++){
+      const c = text[i];
+      if (inQ){
+        if (c === '"'){ if (text[i+1] === '"'){ field += '"'; i++; } else inQ = false; }
+        else field += c;
+      } else {
+        if (c === '"') inQ = true;
+        else if (c === ',') { row.push(field); field = ""; }
+        else if (c === '\n' || c === '\r'){
+          if (c === '\r' && text[i+1] === '\n') i++;
+          row.push(field); field = "";
+          if (row.some(v => v !== "")) lines.push(row);
+          row = [];
+        }
+        else field += c;
+      }
+    }
+    if (field !== "" || row.length){ row.push(field); if (row.some(v => v !== "")) lines.push(row); }
+    if (lines.length < 2) return [];
+    const header = lines[0].map(h => h.trim());
+    return lines.slice(1).map(cells => {
+      const o = {};
+      header.forEach((h, i) => o[h] = (cells[i] ?? "").trim());
+      return o;
+    });
+  }
+
+  /* ── Key detection (schema-flexible) ── */
+  function detectKeys(sample){
+    const keys = Object.keys(sample);
+    const find = (...frags) => keys.find(k => frags.every(f => k.includes(f)));
+    return {
+      year:   find("學年"),
+      name:   find("學校名稱") || find("學校","名"),
+      code:   find("學校代碼") || find("學校","代"),
+      county: find("縣市名") || find("縣市"),
+      ftM: find("專任","男"), ftF: find("專任","女"),
+      ptM: find("兼任","男") || find("代理","男"), ptF: find("兼任","女") || find("代理","女"),
+      stM: find("職員","男"), stF: find("職員","女"),
+      cls: find("班級"),
+      suM: find("學生數","男") || find("學生","男"), suF: find("學生數","女") || find("學生","女"),
+      grM: find("畢業","男"), grF: find("畢業","女")
+    };
+  }
+  const num = v => { const n = parseFloat(String(v ?? "").replace(/,/g, "")); return isNaN(n) ? 0 : n; };
+
+  /* ── Ingest & filter ────────────────── */
+  function ingest(rows, srcLabel){
+    K = detectKeys(rows[0]);
+    if (!K.name){ setStatus("err", "資料欄位無法辨識（找不到「學校名稱」欄）。"); return; }
+
+    const matched = rows.filter(r => {
+      const n = String(r[K.name] || "");
+      if (!n.includes(TARGET_HINT)) return false;
+      if (EXCLUDE_HINTS.some(x => n.includes(x))) return false;
+      return true;
+    });
+
+    if (!matched.length){
+      setStatus("err", "已載入 " + rows.length.toLocaleString() + " 筆全國資料，但找不到「國立花蓮高級中學」，請確認檔案版本。");
+      return;
+    }
+
+    allRows = matched.sort((a,b) => num(a[K.year]) - num(b[K.year]));
+    units = [...new Set(matched.map(r => String(r[K.name]).trim()))];
+    activeUnit = units.find(u => TARGET_NAMES.includes(u)) || units[0];
+
+    const code = matched.find(r => TARGET_NAMES.includes(String(r[K.name]).trim()))?.[K.code]
+              || matched[0][K.code] || "—";
+    $("#schoolCode").textContent = "學校代碼 " + code;
+
+    const yrs = allRows.map(r => num(r[K.year]));
+    setStatus("ok",
+      "<strong>" + srcLabel + "</strong>　全國 " + rows.length.toLocaleString() +
+      " 筆 → 花中相關 " + matched.length + " 筆（" + Math.min(...yrs) + "–" + Math.max(...yrs) + " 學年度）");
+    $("#btnCsv").disabled = false;
+    render();
+  }
+
+  /* ── Render: chips, cards, charts, table ─ */
+  function unitRows(){ return allRows.filter(r => String(r[K.name]).trim() === activeUnit); }
+
+  function render(){
+    /* chips */
+    const chips = $("#unitChips");
+    chips.innerHTML = "";
+    if (units.length > 1){
+      units.forEach(u => {
+        const b = document.createElement("button");
+        b.className = "chip"; b.type = "button"; b.textContent = u;
+        b.setAttribute("aria-pressed", String(u === activeUnit));
+        b.addEventListener("click", () => { activeUnit = u; render(); });
+        chips.appendChild(b);
+      });
+    }
+
+    const rows = unitRows();
+    if (!rows.length) return;
+    const latest = rows[rows.length - 1];
+    const prev   = rows.length > 1 ? rows[rows.length - 2] : null;
+
+    /* cards */
+    const students = r => num(r[K.suM]) + num(r[K.suF]);
+    const teachers = r => num(r[K.ftM]) + num(r[K.ftF]);
+    const delta = (cur, old) => {
+      if (old == null) return "";
+      const d = cur - old;
+      return "較上一年度 <b>" + (d > 0 ? "+" : "") + d.toLocaleString() + "</b>";
+    };
+    const cards = [
+      { k:"最新學年度", v:latest[K.year], d:"最早紀錄 " + rows[0][K.year] + " 學年度" },
+      { k:"學生數", v:students(latest).toLocaleString(),
+        d:"男 " + num(latest[K.suM]).toLocaleString() + "・女 " + num(latest[K.suF]).toLocaleString() +
+          (prev ? "　" + delta(students(latest), students(prev)) : "") },
+      { k:"班級數", v:num(latest[K.cls]).toLocaleString(),
+        d:"平均每班 " + (num(latest[K.cls]) ? (students(latest)/num(latest[K.cls])).toFixed(1) : "—") + " 人" },
+      { k:"專任教師數", v:teachers(latest).toLocaleString(),
+        d:"生師比 " + (teachers(latest) ? (students(latest)/teachers(latest)).toFixed(1) : "—") +
+          (prev ? "　" + delta(teachers(latest), teachers(prev)) : "") },
+      { k:"上學年畢業生", v:(num(latest[K.grM]) + num(latest[K.grF])).toLocaleString(),
+        d:"男 " + num(latest[K.grM]).toLocaleString() + "・女 " + num(latest[K.grF]).toLocaleString() }
+    ];
+    $("#cards").innerHTML = cards.map(c =>
+      '<div class="card"><div class="k">' + c.k + '</div><div class="v">' + c.v +
+      '</div><div class="d">' + c.d + '</div></div>').join("");
+
+    /* charts */
+    $("#secTrend").classList.remove("hidden");
+    drawStudents(rows); drawStaff(rows); drawRatio(rows);
+
+    /* table */
+    $("#secTable").classList.remove("hidden");
+    drawTable(rows);
+  }
+
+  /* ── SVG chart helpers ──────────────── */
+  const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  function svgOpen(w, h){ return '<svg viewBox="0 0 ' + w + ' ' + h + '" width="100%" role="img" preserveAspectRatio="xMidYMid meet">'; }
+  function niceMax(v){ const p = Math.pow(10, Math.floor(Math.log10(v || 1))); return Math.ceil(v / p) * p; }
+  function bindTips(container){
+    container.querySelectorAll("[data-tip]").forEach(el => {
+      el.addEventListener("mousemove", e => {
+        tip.innerHTML = el.dataset.tip; tip.style.opacity = 1;
+        tip.style.left = e.clientX + "px"; tip.style.top = e.clientY + "px";
+      });
+      el.addEventListener("mouseleave", () => tip.style.opacity = 0);
+    });
+  }
+
+  function drawStudents(rows){
+    const W = 960, H = 320, L = 56, R = 56, T = 18, B = 34;
+    const iw = W - L - R, ih = H - T - B;
+    const ys = rows.map(r => num(r[K.year]));
+    const m = rows.map(r => num(r[K.suM])), f = rows.map(r => num(r[K.suF]));
+    const tot = rows.map((_, i) => m[i] + f[i]);
+    const cls = rows.map(r => num(r[K.cls]));
+    const maxY = niceMax(Math.max(...tot) * 1.08);
+    const maxC = niceMax(Math.max(...cls, 1) * 1.25);
+    const x = i => L + (rows.length === 1 ? iw/2 : iw * i / (rows.length - 1));
+    const y = v => T + ih - ih * v / maxY;
+    const yc = v => T + ih - ih * v / maxC;
+
+    let s = svgOpen(W, H);
+    for (let g = 0; g <= 4; g++){
+      const gv = maxY * g / 4, gy = y(gv);
+      s += '<line x1="'+L+'" y1="'+gy+'" x2="'+(W-R)+'" y2="'+gy+'" stroke="'+cssVar("--line")+'" stroke-width="1"/>' +
+           '<text x="'+(L-8)+'" y="'+(gy+4)+'" text-anchor="end">'+gv.toLocaleString()+'</text>';
+    }
+    // stacked areas: female on top of male
+    const area = (vals, base) => {
+      let d = "M" + x(0) + " " + y(base ? vals[0] + base[0] : vals[0]);
+      vals.forEach((v, i) => d += " L" + x(i) + " " + y(base ? v + base[i] : v));
+      for (let i = vals.length - 1; i >= 0; i--) d += " L" + x(i) + " " + y(base ? base[i] : 0);
+      return d + " Z";
+    };
+    s += '<path d="' + area(m) + '" fill="' + cssVar("--male") + '" opacity="0.82"/>';
+    s += '<path d="' + area(f, m) + '" fill="' + cssVar("--female") + '" opacity="0.82"/>';
+    // class-count ridge line (right axis)
+    let dl = "";
+    cls.forEach((v, i) => dl += (i ? " L" : "M") + x(i) + " " + yc(v));
+    s += '<path d="' + dl + '" fill="none" stroke="' + cssVar("--ridge") + '" stroke-width="2.5" stroke-dasharray="1 0"/>';
+    for (let g = 0; g <= 4; g++){
+      const gv = maxC * g / 4;
+      s += '<text x="'+(W-R+8)+'" y="'+(yc(gv)+4)+'">'+Math.round(gv)+'</text>';
+    }
+    rows.forEach((r, i) => {
+      s += '<text x="'+x(i)+'" y="'+(H-10)+'" text-anchor="middle">'+ys[i]+'</text>';
+      s += '<rect x="'+(x(i)-14)+'" y="'+T+'" width="28" height="'+ih+'" fill="transparent" data-tip="<b>'+ys[i]+' 學年度</b><br>學生 '+tot[i].toLocaleString()+'（男 '+m[i]+'・女 '+f[i]+'）<br>班級 '+cls[i]+' 班"/>';
+    });
+    s += "</svg>";
+    const box = $("#chartStudents"); box.innerHTML = s; bindTips(box);
+  }
+
+  function drawStaff(rows){
+    const W = 960, H = 260, L = 46, R = 16, T = 16, B = 34;
+    const iw = W - L - R, ih = H - T - B;
+    const ys = rows.map(r => num(r[K.year]));
+    const series = [
+      { vals: rows.map(r => num(r[K.ftM]) + num(r[K.ftF])), c: cssVar("--sea"),    n: "專任教師" },
+      { vals: rows.map(r => num(r[K.ptM]) + num(r[K.ptF])), c: cssVar("--female"), n: "兼任／代理" },
+      { vals: rows.map(r => num(r[K.stM]) + num(r[K.stF])), c: cssVar("--ridge"),  n: "職員" }
+    ];
+    const maxY = niceMax(Math.max(...series.flatMap(sr => sr.vals), 1) * 1.15);
+    const x = i => L + (rows.length === 1 ? iw/2 : iw * i / (rows.length - 1));
+    const y = v => T + ih - ih * v / maxY;
+    let s = svgOpen(W, H);
+    for (let g = 0; g <= 3; g++){
+      const gv = maxY * g / 3, gy = y(gv);
+      s += '<line x1="'+L+'" y1="'+gy+'" x2="'+(W-R)+'" y2="'+gy+'" stroke="'+cssVar("--line")+'"/>' +
+           '<text x="'+(L-8)+'" y="'+(gy+4)+'" text-anchor="end">'+Math.round(gv)+'</text>';
+    }
+    series.forEach(sr => {
+      let d = "";
+      sr.vals.forEach((v, i) => d += (i ? " L" : "M") + x(i) + " " + y(v));
+      s += '<path d="'+d+'" fill="none" stroke="'+sr.c+'" stroke-width="2.5"/>';
+      sr.vals.forEach((v, i) => s += '<circle cx="'+x(i)+'" cy="'+y(v)+'" r="3.5" fill="'+sr.c+'"/>');
+    });
+    rows.forEach((r, i) => {
+      s += '<text x="'+x(i)+'" y="'+(H-10)+'" text-anchor="middle">'+ys[i]+'</text>';
+      s += '<rect x="'+(x(i)-14)+'" y="'+T+'" width="28" height="'+ih+'" fill="transparent" data-tip="<b>'+ys[i]+' 學年度</b><br>'+series.map(sr => sr.n+" "+sr.vals[i]).join("<br>")+'"/>';
+    });
+    s += "</svg>";
+    const box = $("#chartStaff"); box.innerHTML = s; bindTips(box);
+  }
+
+  function drawRatio(rows){
+    const W = 960, H = 240, L = 46, R = 16, T = 16, B = 34;
+    const iw = W - L - R, ih = H - T - B;
+    const ys = rows.map(r => num(r[K.year]));
+    const perClass = rows.map(r => {
+      const c = num(r[K.cls]); return c ? (num(r[K.suM]) + num(r[K.suF])) / c : 0;
+    });
+    const ratio = rows.map(r => {
+      const t = num(r[K.ftM]) + num(r[K.ftF]);
+      return t ? (num(r[K.suM]) + num(r[K.suF])) / t : 0;
+    });
+    const maxY = niceMax(Math.max(...perClass, ...ratio, 1) * 1.2);
+    const x = i => L + (rows.length === 1 ? iw/2 : iw * i / (rows.length - 1));
+    const y = v => T + ih - ih * v / maxY;
+    let s = svgOpen(W, H);
+    for (let g = 0; g <= 3; g++){
+      const gv = maxY * g / 3, gy = y(gv);
+      s += '<line x1="'+L+'" y1="'+gy+'" x2="'+(W-R)+'" y2="'+gy+'" stroke="'+cssVar("--line")+'"/>' +
+           '<text x="'+(L-8)+'" y="'+(gy+4)+'" text-anchor="end">'+Math.round(gv)+'</text>';
+    }
+    [[perClass, cssVar("--sea"), "每班學生"], [ratio, cssVar("--male"), "生師比"]].forEach(([vals, c]) => {
+      let d = "";
+      vals.forEach((v, i) => d += (i ? " L" : "M") + x(i) + " " + y(v));
+      s += '<path d="'+d+'" fill="none" stroke="'+c+'" stroke-width="2.5"/>';
+      vals.forEach((v, i) => s += '<circle cx="'+x(i)+'" cy="'+y(v)+'" r="3.5" fill="'+c+'"/>');
+    });
+    rows.forEach((r, i) => {
+      s += '<text x="'+x(i)+'" y="'+(H-10)+'" text-anchor="middle">'+ys[i]+'</text>';
+      s += '<rect x="'+(x(i)-14)+'" y="'+T+'" width="28" height="'+ih+'" fill="transparent" data-tip="<b>'+ys[i]+' 學年度</b><br>每班學生 '+perClass[i].toFixed(1)+' 人<br>生師比 '+ratio[i].toFixed(1)+'"/>';
+    });
+    s += "</svg>";
+    const box = $("#chartRatio"); box.innerHTML = s; bindTips(box);
+  }
+
+  function drawTable(rows){
+    const cols = Object.keys(rows[0]);
+    let html = "<thead><tr>" + cols.map(c => "<th>" + c + "</th>").join("") + "</tr></thead><tbody>";
+    rows.forEach(r => {
+      html += "<tr>" + cols.map(c => {
+        const v = String(r[c] ?? "");
+        const numeric = v !== "" && /^[\d,\.]+$/.test(v) && c !== cols[0];
+        return '<td class="' + (numeric ? "num" : "") + '">' + v + "</td>";
+      }).join("") + "</tr>";
+    });
+    html += "</tbody>";
+    $("#tbl").innerHTML = html;
+    $("#rowCount").textContent = rows.length + " 筆年度紀錄";
+  }
+
+  /* ── Export ─────────────────────────── */
+  $("#btnCsv").addEventListener("click", () => {
+    const rows = unitRows();
+    if (!rows.length) return;
+    const cols = Object.keys(rows[0]);
+    const esc = v => { v = String(v ?? ""); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    const csv = "\uFEFF" + cols.join(",") + "\n" +
+      rows.map(r => cols.map(c => esc(r[c])).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], {type:"text/csv;charset=utf-8"}));
+    a.download = "花蓮高中_校別資料_" + activeUnit + ".csv";
+    a.click(); URL.revokeObjectURL(a.href);
+  });
+
+  $("#btnReload").addEventListener("click", loadRemote);
+
+  /* ── Go ─────────────────────────────── */
+  loadRemote();
+})();
+</script>
+</body>
+</html>
